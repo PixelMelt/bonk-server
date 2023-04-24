@@ -1,24 +1,11 @@
-const axios = require('axios');
 const express = require('express');
 const cors = require('cors');
-const ws = require('ws');
 const fs = require('fs');
 const bodyParser = require('body-parser');
-const chalk = require('chalk');
 const BonkBot = require('./bonkbot');
 const decoder = require('./decoder.js');
-
-
-const bonkserver = {
-    name: "BOSS",// Bonk.io Online Server Software
-    version: "1.0.0",
-    bossport: 7635,
-
-    randomMaps: false, // if true, will pick random maps from the picks map pool
-}
-
-
-
+const utils = require('./utils.js');
+const bonkserver = require('./config.json');
 const app = express();
 
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -26,79 +13,25 @@ app.use(bodyParser.json());
 app.use(cors());
 
 const servers = require('http').createServer(app);
-
 const io = require("socket.io")(servers, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  },
-  transports: ["websocket", "polling"]
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    },
+    transports: ["websocket", "polling"]
 });
 
-async function getPicks(){
-    var url = "https://bonk2.io/scripts/hotmaps/picks.txt";
-	return new Promise((resolve, reject) => {
-        axios.get(url)
-            .then(function (response) {
-                if(response.data.r == `success`){
-                    resolve(response.data)
-                }else{
-                    resolve(null)
-                }
-            });
-    })
-}
-
-// info about game modes
-let gameengines = {
-    f: "Football",
-    b: "Bonk"
-}
-let gamemodes = {
-    f: "Football",
-    bs: "Simple",
-    ard: "Death Arrows",
-    ar: "Arrows",
-    sp: "Grapple",
-    v: "VTOL",
-    b: "Classic"
-}
-let num2team = {
-    0: "spectator",
-    1: "ffa",
-    2: "red",
-    3: "blue",
-    4: "green",
-    5: "yellow",
-}
-
-function logload(msg){
-    console.log(chalk.yellow(`[${bonkserver.name}]`), chalk.white(msg));
-}
-function logsuccess(msg){
-    console.log(chalk.green(`[${bonkserver.name}]`), chalk.white(msg));
-}
-function logchat(msg){
-    console.log(chalk.blue(`[CHAT]`), chalk.white(msg));
-}
-function loginfo(msg){
-    console.log(chalk.cyan(`[${bonkserver.name}]`), chalk.white(msg));
-}
-function logerror(msg){
-    console.log(chalk.red(`[${bonkserver.name}]`), chalk.white(msg));
-}
-
 var pserver = {
-    id: 1,
+    id: Math.floor(Math.random() * 99999999),
     players: 0,
-    roomname: `Private Server: ${bonkserver.name}`,
+    roomname: bonkserver.room_name,
     roomid: "pserver",
     roombypass: "amogus",
-    latitude: 19.6631,
-    longitude: -155.98,
-    maxplayers: "∞",
+    latitude: 0,
+    longitude: 0,
+    maxplayers: bonkserver.max_players,
     password: 0,
-    version: 44,
+    version: 1,
     country: "US",
     mode_ga: "b",// game engine
     mode_mo: "b",// game mode
@@ -115,7 +48,7 @@ var pserver = {
     inputs: [],
     admin: [],
 
-    pinfriend: `Private server: ${bonkserver.name}`,
+    pinfriend: bonkserver.room_name,
 
     hostid: 0,
     quickplay: false,
@@ -131,30 +64,29 @@ var pserver = {
     botsd: [],
 }
 
-logload(`Starting Bonk.io Online Server Software (BOSS)...`);
+utils.logload(`Starting Bonk.io Online Server Software (BOSS)...`);
 
 if(bonkserver.randomMaps){
     async function setDefaultMap(){
         // set the default map to a random map
-        let picks = await getPicks();
+        let picks = await utils.getPicks();
         // chose a random item from the picks array
         let rmap = picks.maps[Math.floor(Math.random() * picks.maps.length)];
-        map = rmap.leveldata
-        pserver.map = map
-        logsuccess(`Set default map to ${rmap.name} by ${rmap.authorname}\n`);
-        logsuccess(`BOSS Server Ready!`);
+        pserver.map = rmap.leveldata
+        utils.logsuccess(`Set default map to ${rmap.name} by ${rmap.authorname}`);
+        utils.logsuccess(`BOSS Server Ready!`);
     }
     setDefaultMap();
 }else{
     // set the default map to the default map file
-    let map = fs.readFileSync('./defaultmap.json', 'utf8');
+    let map = fs.readFileSync('./server/defaultmap.json', 'utf8');
     pserver.map = JSON.parse(map);
-    logsuccess(`Set default map to ${JSON.parse(map).m.n} by ${JSON.parse(map).m.a}`);
+    utils.logsuccess(`Set default map to ${JSON.parse(map).m.n} by ${JSON.parse(map).m.a}`);
 }
 
 // log when a client connects
 io.on('connection', (socket) => {
-    logload(`Client connected`);
+    utils.logload(`Client connected`);
 
     let playerroomid = undefined;
     let socketid = socket.id;
@@ -163,12 +95,6 @@ io.on('connection', (socket) => {
         
         // remove the player from the pserver objects playersd array and replace it with null
         if(playerroomid != undefined){
-            // pserver.playersd[playerroomid] = null;
-            // // also remove 1 from the player count
-            // pserver.players--;
-            // // and also tell the clients that the player left
-            // io.emit(5, playerroomid, 0);
-            // logload(`A player left the server`);
 
             // remove every player with the same socket id
             for(let i = 0; i < pserver.playersd.length; i++){
@@ -179,12 +105,12 @@ io.on('connection', (socket) => {
                         pserver.players--;
                         // and also tell the clients that the player left
                         io.emit(5, playerroomid, 0);
-                        logload(`A player left the server`);
+                        utils.logload(`A player left the server`);
                     }
                 }
             }
         }else{
-            logload(`A client disconnected`);
+            utils.logload(`A client disconnected`);
         }
     });
 
@@ -192,32 +118,25 @@ io.on('connection', (socket) => {
 
     // syncronize client time with server time
     socket.on(18, async (msg) => {
-        // console.log(msg);
-        // send back hi
         let unixtime = Date.now();
-        // io.emit(23, {"id":msg.id,"result":unixtime});
-        // send only to the client that sent the message
         io.to(socketid).emit(23, {"id":msg.id,"result":unixtime});
     })
 
     // client join attempt
     if(pserver.map != false){
         socket.on(13, async (msg) => {
-            // console.log(msg);
-    
             // check if the server is full
             if(pserver.players >= pserver.maxplayers){
                 io.emit(16, "room_full");
                 return;
             }else{
-    
                 // use the token to get the user's info
                 let token = {}
                 try {
                     token = JSON.parse(msg.token);
                 } catch (error) {
                     console.log(token);
-                    logerror(`Error getting users token: ${error}`);
+                    utils.logerror(`Error getting users token: ${error}`);
                     return;
                 }
                 msg.userName = token.name;
@@ -298,7 +217,7 @@ io.on('connection', (socket) => {
                 // check if the game is already started
                 if(!pserver.ingame == 1){
                     io.to(socketid).emit(21, gameinfo);
-                    loginfo(`Sent map to player ${msg.userName}`);
+                    utils.loginfo(`Sent map to player ${msg.userName}`);
                 }
     
                 // tell everyone exempt the joinee that a player joined
@@ -311,8 +230,7 @@ io.on('connection', (socket) => {
                     }
                 }
     
-    
-                logsuccess(`Player ${msg.userName} joined the server at level ${msg.level} with id ${msg.id}!`);
+                utils.logsuccess(`Player ${msg.userName} joined the server at level ${msg.level} with id ${msg.id}!`);
     
             }
         })
@@ -341,8 +259,9 @@ io.on('connection', (socket) => {
                 }
             }
         }
+
         io.to(pserver.playersd[highestid].socketid).emit(48, gamestate);
-        loginfo(`Sent game state to the new player`);
+        utils.loginfo(`Sent game state to the new player`);
     })
 
 
@@ -351,43 +270,40 @@ io.on('connection', (socket) => {
         // look for the player in the playersd array with the socketid and get their id
         let playerid = undefined;
         let playername = `UnknownPlayer`;
+        let playerobj = undefined;
         for(let i = 0; i < pserver.playersd.length; i++){
             let player = pserver.playersd[i];
             if(player != null){
                 if(player.socketid == socketid){
                     playerid = player.id;
                     playername = player.userName;
+                    playerobj = player;
                 }
             }
         }
 
-        // regex to check if the message is a command starting with !
+        // check if message is a command starting with !
         let regex = /^!/;
         if(regex.test(msg.message)){
-            // // if it is, remove the ! and split the message into an array
-            // let command = msg.message.replace(regex, "").split(" ");
-            // let commandname = command[0];
-            // let commandargs = command.slice(1);
+            // if it is, remove the ! and split the message into an array
+            let command = msg.message.replace(regex, "").split(" ");
+            let commandname = command[0];
+            let commandargs = command.slice(1);
 
+            utils.logsuccess(`${playername} ran command: ${commandname} ${commandargs}`);
 
-            // if(commandname == "hello"){
-            //     // send only the player the help message
-            //     io.to(player.socketid).emit(20, playerid, msg.message);
-            //     io.to(player.socketid).emit(20, playerid, `Hello ${playername}! How are you?`);
-            //     // console.log(`Player ${playerid} ran command ${commandname} with args ${commandargs}`);
-            //     logsuccess(`${playername} ran command ${commandname} ${commandargs}`);
-            // }
+            if(commandname == "help"){
+                let help = `Commands: !help, !hello`
+                io.to(playerobj.socketid).emit(20, playerid, help);
+            }
 
+            if(commandname == "hello"){
+                io.to(playerobj.socketid).emit(20, playerid, `Hello ${playername}! How are you?`);
+            }
 
-
-
-            // console.log(`Player ${playerid} sent a message: ${msg.message}`);
-            logchat(`${playername}: ${msg.message}`);
-            // send the chat message to all clients
-            io.emit(20, playerid, msg.message);
+            utils.logchat(`${playername}: ${msg.message}`);
         }else{
-            // console.log(`Player ${playerid} sent a message: ${msg.message}`);
-            logchat(`${playername}: ${msg.message}`);
+            utils.logchat(`${playername}: ${msg.message}`);
             // send the chat message to all clients
             io.emit(20, playerid, msg.message);
         }
@@ -400,13 +316,12 @@ io.on('connection', (socket) => {
         io.emit(29, data.m);
         pserver.map = data.m;
         
-        // console.log("map changed");
-        loginfo(`Map changed`);
+        utils.loginfo(`Map changed`);
     });
 
     // the countdown until the game starts
     socket.on(36, async (data) => {
-        loginfo(`Game starting in ${data.t} seconds`);
+        utils.loginfo(`Game starting in ${data.t} seconds`);
         io.emit(43, data.num);
     });
 
@@ -417,7 +332,7 @@ io.on('connection', (socket) => {
         pserver.is = is;
         let gameinfo = data.gs;
     
-        // save the values in gs to the pserver
+        // save the values in gs to the pserver object
         pserver.gt = gameinfo.gt;
         pserver.rounds = gameinfo.wl;
         pserver.quickplay = gameinfo.q;
@@ -427,23 +342,17 @@ io.on('connection', (socket) => {
         pserver.mode_mo = gameinfo.mo;
         pserver.balance = gameinfo.bal;
 
-        // do weird things with the is
-        // is = decoder.ISdecode(is)
-        // // add 20 { id: 0, team: 3 } to is.players with never the same id even though there is only 1 player
-        // is.ball.xv = 100
-
-        // console.log(is);
-        // is = decoder.ISencode(is);
+        // here you could do weird things with the is
 
         // set in game to 1
         pserver.ingame = 1;
 
         // send the game start to all clients with the id 15
-        loginfo(`Game started`);
+        utils.loginfo(`Game started`);
         io.emit(15, unixtime, is, gameinfo);
     });
 
-    // when u get sent [6,{"targetTeam":1}] reply with [18,player id,team number] its the team change
+    // when receive sent [6,{"targetTeam":1}] reply with [18,player id,team number] its the team change
     socket.on(6, async (data) => {
         // look for the player in the playersd array with the socketid and get their id
         let playerid = undefined;
@@ -461,10 +370,10 @@ io.on('connection', (socket) => {
         pserver.playersd[playerid].team = data.targetTeam;
         io.emit(18, playerid, data.targetTeam);
         // console.log(`Player ${playerid} changed teams to ${data.targetTeam}`);
-        loginfo(`${playername} changed teams to ${num2team[data.targetTeam]}`);
+        utils.loginfo(`${playername} changed teams to ${utils.num2team[data.targetTeam]}`);
     });
 
-    // when u get sent keypress
+    // when receive sent keypress
     socket.on(4, async (data) => {
         // look for the player in the playersd array with the socketid and get their id
         let playerid = undefined;
@@ -489,7 +398,7 @@ io.on('connection', (socket) => {
         io.emit(7, playerid, data);
     });
     
-    // when u get sent [20,{"ga":"b","mo":"ard"}] set the game engine and mode
+    // when receive sent [20,{"ga":"b","mo":"ard"}] set the game engine and mode
     socket.on(20, async (data) => {
         pserver.mode_ga = data.ga;
         pserver.mode_mo = data.mo;
@@ -499,31 +408,30 @@ io.on('connection', (socket) => {
         // if ga is f then turn on teams
         if(data.ga == "f"){
             pserver.teamson = true;
-            loginfo(`Teams turned on`);
+            utils.loginfo(`Teams turned on`);
             io.emit(19, data.t);
         }
     });
 
-    //when u get [21,{"w":9}] change the rounds
+    //when receive [21,{"w":9}] change the rounds
     socket.on(21, async (data) => {
         pserver.rounds = data.w;
-        loginfo(`Rounds changed to ${data.w}`);
+        utils.loginfo(`Rounds changed to ${data.w}`);
         io.emit(27, data.w);
     });
 
-    // when u get [32,{"t":false}] change the teamson to whatever value is in t
+    // when receive [32,{"t":false}] change the teamson to whatever value is in t
     socket.on(32, async (data) => {
         pserver.teamson = data.t;
-        // log 
         if(data.t){
-            loginfo(`Teams turned on`);
+            utils.loginfo(`Teams turned on`);
         }else{
-            loginfo(`Teams turned off`);
+            utils.loginfo(`Teams turned off`);
         }
         io.emit(39, data.t);
     });
 
-    // when u get [7,{"teamLock":false}] change the teamslocked to whatever value is in teamLock
+    // when receive [7,{"teamLock":false}] change the teamslocked to whatever value is in teamLock
     socket.on(7, async (data) => {
         pserver.teamslocked = data.teamLock;
         io.emit(19, data.teamLock);
@@ -558,11 +466,6 @@ io.on('connection', (socket) => {
         io.emit(8, playerid, data.ready);
     });
 
-    // for later
-    // send the chat message to only the sender
-    //io.to('socket#id').emit('hey')
-
-
     socket.on(`error`, (err) => {
         console.log(err);
     })
@@ -584,8 +487,29 @@ app.post('/getrooms', async (req, res) => {
     let protocolversion = req.body.version;
 
     let rooms = await BonkBot.getRooms(token, protocolversion);
-    rooms = rooms.rooms.push(pserver);
-    rooms = pinPrivateServer(rooms, 1);
+
+    rooms.rooms.push({
+        id: pserver.id,
+        players: pserver.players,
+        roomname: pserver.roomname,
+        roomid: pserver.roomid,
+        roombypass: pserver.roombypass,
+        latitude: pserver.latitude,
+        longitude: pserver.longitude,
+        maxplayers: pserver.maxplayers,
+        password: pserver.password,
+        version: pserver.version,
+        country: pserver.country,
+        mode_ga: pserver.mode_ga,
+        mode_mo: pserver.mode_mo,
+        gt: pserver.gt,
+        ingame: pserver.ingame,
+        minlevel: pserver.minlevel,
+        maxlevel: pserver.maxlevel,
+    });
+
+    rooms = pinPrivateServer(rooms, pserver.id);
+
     res.send(rooms);
 });
 
@@ -607,8 +531,8 @@ app.post('/getroomaddress', async (req, res) => {
 
 // create the server
 servers.listen(bonkserver.bossport, () => {
-    logsuccess(`BOSS server started on port ${bonkserver.bossport}!`);
+    utils.logsuccess(`BOSS server started on port ${bonkserver.bossport}!`);
     if(!bonkserver.randomMaps){
-        logsuccess(`BOSS Server Ready!`);
+        utils.logsuccess(`BOSS Server Ready!`);
     }
 });

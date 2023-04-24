@@ -1,0 +1,8 @@
+{
+    "log_name": "BOSS",
+    "room_name": "Private Server: BOSS",
+    "bossport": 7635,
+    "max_players": "∞", 
+
+    "randomMaps": false
+}
