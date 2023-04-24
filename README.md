@@ -11,7 +11,7 @@ BOSS is a backend server that serves as an alternative to the official bonk.io s
 
 ## Client Side Setup
 
-1. Install the UserScript on your browser with a user script manager (e.g., Tampermonkey, Greasemonkey).
+1. Install the UserScript on your browser with a user script manager (e.g., Tampermonkey, Greasemonkey) Click [here](https://github.com/PixelMelt/bonk-server/raw/main/privateServerClient.user.js) to install it.
 2. Ensure you have GMM (GameModeMaker) installed. You can find it [here](https://sneezingcactus.github.io/gmmaker/docs/tutorials/GettingStarted-1.html).
 3. The default private server address is `https://boss.fly.dev/`. Change this in the UserScript code if needed. Connect only to trusted servers to avoid security risks like IP leakage.
 
