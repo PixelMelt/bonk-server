@@ -19,7 +19,9 @@
 // INSTALL GMM FROM HERE: https://sneezingcactus.github.io/gmmaker/docs/tutorials/GettingStarted-1.html
 
 // You can set the server you are using's address below.
-// Be careful though, if you set it to a malicious server your IP address could be leaked.
+// Be careful though, if you set it to a malicious server your IP address could be leaked,
+// or your token could be used to impersonate you in game.
+
 // Only connect to servers you trust.
 
 // the official server is https://boss.fly.dev/ currently and is run by me (Pix#7008)
@@ -34,7 +36,6 @@
 
 const PServerSettings = {
     privateServerAddress: `https://boss.fly.dev/`,
-    // privateServerAddress: `http://localhost:7635/`,
     debug: false,
 }
 
