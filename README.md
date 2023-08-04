@@ -1,4 +1,4 @@
-# BOSS: Private Server for Bonk.io
+# Private Server for Bonk.io
 
 ## Features
 
